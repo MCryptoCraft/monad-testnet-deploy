@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monad Testnet Deployer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.ethers.io/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .card {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 28rem;
+        }
+        .glow-button {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .glow-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 300%;
+            height: 300%;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: all 0.6s ease;
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            z-index: -1;
+        }
+        .glow-button:hover::before {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .glow-button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen">
+
+<div class="card p-8 rounded-2xl w-full max-w-md mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col items-center mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 text-blue-400 mb-2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" />
+        </svg>
+        <h1 class="text-3xl font-bold text-center">Monad Deployer</h1>
+        <p class="text-gray-400 text-center mt-2">Free smart contract deployment on Monad Testnet.</p>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="status-container" class="mb-6 h-12 flex items-center justify-center text-center">
+        <p id="status-message" class="text-sm font-medium text-gray-300">Awaiting connection...</p>
+        <div id="loading-spinner" class="hidden animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+    </div>
+
+    <!-- Wallet Connection & Deploy Buttons -->
+    <div class="flex flex-col space-y-4">
+        <button id="connect-button" class="glow-button w-full px-6 py-3 rounded-xl font-semibold text-lg bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+            Connect Wallet
+        </button>
+
+        <button id="deploy-button" class="glow-button w-full px-6 py-3 rounded-xl font-semibold text-lg bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900 hidden" disabled>
+            Deploy "HelloWorld" Contract
+        </button>
+    </div>
+
+    <!-- Results Display -->
+    <div id="result-container" class="mt-8 hidden">
+        <div class="space-y-4">
+            <div>
+                <p class="text-sm font-medium text-gray-400">Deployed Contract Address:</p>
+                <div class="mt-1 flex items-center bg-gray-700 rounded-lg p-3">
+                    <span id="contract-address" class="text-sm font-mono text-emerald-400 break-all"></span>
+                    <button id="copy-button" class="ml-auto p-1 text-gray-400 hover:text-white" title="Copy to clipboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v2.25H9.75v-2.25m6-12V6a2.25 2.25 0 0 1-2.25 2.25H9.75A2.25 2.25 0 0 1 7.5 6V5.25m6-4.5h-3a2.25 2.25 0 0 0-2.25 2.25V5.25m6 0a2.25 2.25 0 0 1 2.25-2.25h3c.966 0 1.75.784 1.75 1.75v3.5a1.75 1.75 0 0 1-1.75 1.75H9.75a1.75 1.75 0 0 1-1.75-1.75V3.75c0-.966.784-1.75 1.75-1.75h3Z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-400">Transaction Hash:</p>
+                <div class="mt-1 flex items-center bg-gray-700 rounded-lg p-3">
+                    <span id="transaction-hash" class="text-sm font-mono text-blue-400 break-all"></span>
+                    <button id="copy-tx-button" class="ml-auto p-1 text-gray-400 hover:text-white" title="Copy to clipboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v2.25H9.75v-2.25m6-12V6a2.25 2.25 0 0 1-2.25 2.25H9.75A2.25 2.25 0 0 1 7.5 6V5.25m6-4.5h-3a2.25 2.25 0 0 0-2.25 2.25V5.25m6 0a2.25 2.25 0 0 1 2.25-2.25h3c.966 0 1.75.784 1.75 1.75v3.5a1.75 1.75 0 0 1-1.75 1.75H9.75a1.75 1.75 0 0 1-1.75-1.75V3.75c0-.966.784-1.75 1.75-1.75h3Z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Constants for Monad Testnet
+    const MONAD_CHAIN_ID = 10143;
+    const MONAD_RPC_URL = 'https://testnet-rpc.monad.xyz';
+    const MONAD_EXPLORER_URL = 'https://testnet.monadexplorer.com';
+
+    // Contract ABI and Bytecode for a simple "HelloWorld" contract
+    const helloWorldABI = [
+        "function getMessage() public view returns (string)",
+        "function setMessage(string memory newMessage) public",
+    ];
+
+    const helloWorldBytecode = "0x608060405234801561001057600080fd5b50600436106100365760003560e01c8063415c490f1461003b578063c64a39011461005a575b600080fd5b610043610074565b60405161005091906100a8565b60405180910390f35b61006a6100653660046100f7565b6000546001600160a01b03191636101561009157600080fd5b6001600160a01b03811631105061009857600080fd5b6100a5565b6040516001600160a01b03909116815260200160405180910390f35b600080546001600160a01b0319166001600160a01b0392909216919091179055565b60006020828403121561010957600080fd5b81356001600160a01b038116811461011f57600080fd5b939250505056fea26469706673582212204c86e026e63721183296c05d761617306059d91f24795368a5c2d3c9077d854464736f6c634300080e0033";
+
+    // UI elements
+    const connectButton = document.getElementById('connect-button');
+    const deployButton = document.getElementById('deploy-button');
+    const statusMessage = document.getElementById('status-message');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const resultContainer = document.getElementById('result-container');
+    const contractAddressSpan = document.getElementById('contract-address');
+    const transactionHashSpan = document.getElementById('transaction-hash');
+    const copyButton = document.getElementById('copy-button');
+    const copyTxButton = document.getElementById('copy-tx-button');
+
+    // Ethers variables
+    let provider;
+    let signer;
+
+    // Helper functions
+    const showMessage = (msg, isError = false) => {
+        statusMessage.textContent = msg;
+        statusMessage.className = isError ? 'text-sm font-medium text-red-400' : 'text-sm font-medium text-gray-300';
+    };
+
+    const toggleLoading = (show) => {
+        loadingSpinner.classList.toggle('hidden', !show);
+        statusMessage.classList.toggle('hidden', show);
+    };
+
+    const copyToClipboard = (text) => {
+        if (!text) {
+            showMessage("Nothing to copy.", true);
+            return;
+        }
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showMessage("Copied to clipboard!", false);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            showMessage('Failed to copy. Please copy manually.', true);
+        }
+    };
+
+    // Main logic
+    const setupEthers = async () => {
+        try {
+            toggleLoading(true);
+            showMessage("Connecting to wallet...");
+            // The following check for window.ethereum is required to interact with MetaMask or similar wallets.
+            // This error occurs in environments that do not support browser extensions.
+            if (!window.ethereum) {
+                showMessage("MetaMask not detected. Please install it.", true);
+                throw new Error("MetaMask not detected.");
+            }
+            
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+
+            const network = await provider.getNetwork();
+            if (network.chainId !== MONAD_CHAIN_ID) {
+                showMessage("Switching to Monad Testnet...", false);
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: `0x${MONAD_CHAIN_ID.toString(16)}`,
+                            chainName: 'Monad Testnet',
+                            rpcUrls: [MONAD_RPC_URL],
+                            nativeCurrency: {
+                                name: 'MON',
+                                symbol: 'MON',
+                                decimals: 18,
+                            },
+                            blockExplorerUrls: [MONAD_EXPLORER_URL],
+                        }]
+                    });
+                    
+                    // Re-initialize provider after network switch
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    showMessage("Successfully connected to Monad Testnet!");
+                } catch (error) {
+                    showMessage("Could not switch to Monad Testnet. Please switch manually.", true);
+                    return;
+                }
+            } else {
+                showMessage("Successfully connected to Monad Testnet!");
+            }
+            
+            connectButton.textContent = "Wallet Connected";
+            connectButton.disabled = true;
+            connectButton.classList.add('bg-gray-600', 'hover:bg-gray-600', 'cursor-not-allowed');
+            deployButton.classList.remove('hidden');
+            deployButton.disabled = false;
+        } catch (error) {
+            console.error(error);
+            showMessage("Connection failed. Check console for details.", true);
+        } finally {
+            toggleLoading(false);
+        }
+    };
+
+    const deployContract = async () => {
+        try {
+            toggleLoading(true);
+            showMessage("Deploying contract...");
+            
+            const factory = new ethers.ContractFactory(helloWorldABI, helloWorldBytecode, signer);
+            
+            const contract = await factory.deploy();
+            
+            showMessage("Transaction sent! Waiting for confirmation...");
+            transactionHashSpan.textContent = contract.deployTransaction.hash;
+            
+            await contract.deployed();
+
+            showMessage("Contract deployed successfully!");
+            contractAddressSpan.textContent = contract.address;
+            
+            resultContainer.classList.remove('hidden');
+            deployButton.disabled = true;
+            deployButton.classList.add('bg-gray-600', 'hover:bg-gray-600', 'cursor-not-allowed');
+
+        } catch (error) {
+            console.error(error);
+            showMessage(`Deployment failed: ${error.message || 'Unknown error'}`, true);
+        } finally {
+            toggleLoading(false);
+        }
+    };
+
+    // Event Listeners
+    connectButton.addEventListener('click', setupEthers);
+    deployButton.addEventListener('click', deployContract);
+
+    copyButton.addEventListener('click', () => {
+        const address = contractAddressSpan.textContent;
+        copyToClipboard(address);
+    });
+
+    copyTxButton.addEventListener('click', () => {
+        const txHash = transactionHashSpan.textContent;
+        copyToClipboard(txHash);
+    });
+
+</script>
+
+</body>
+</html>
