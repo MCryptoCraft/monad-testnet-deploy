@@ -1,78 +1,94 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Monad Testnet – Smart Contract Deployer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.min.js"></script>
-  <style>
-    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:#f9fafb; color:#111; text-align:center; }
-    header { padding:30px 20px; background:#7c3aed; color:#fff; }
-    h1 { margin:0; font-size:22px; font-weight:700; }
-    main { max-width:600px; margin:40px auto; padding:0 20px; }
-    button { padding:12px 24px; margin:10px; border:none; border-radius:8px; font-size:16px; cursor:pointer; font-weight:600; }
-    #connect { background:#111; color:#fff; }
-    #deploy { background:#7c3aed; color:#fff; }
-    button:disabled { opacity:0.6; cursor:not-allowed; }
-    #msg { margin-top:30px; font-size:15px; line-height:1.5; }
-    a { color:#7c3aed; font-weight:600; text-decoration:none; }
-    footer { margin:50px 0 20px; font-size:13px; color:#666; }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monad Smart Contract Deployer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://unpkg.com/@web3modal/html@3.5.7"></script>
 </head>
-<body>
-  <header>
-    <h1>Monad Testnet – Deploy Smart Contract</h1>
-  </header>
-  <main>
-    <p>Connect your wallet and deploy a sample contract to Monad Testnet.</p>
-    <button id="connect">🦊 Connect Wallet</button>
-    <button id="deploy" disabled>🚀 Deploy Contract</button>
-    <div id="msg"></div>
-  </main>
-  <footer>
-    Powered by <strong>Monad Testnet</strong> · Works entirely client-side
-  </footer>
+<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
+  <div class="bg-gray-800 p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+    <h1 class="text-2xl font-bold mb-4">Monad Testnet Deployer</h1>
+    <p class="mb-6 text-gray-400">Connect your wallet and deploy a contract on Monad Testnet.</p>
 
-<script>
-  const MONAD = {
-    chainId: "0x279f", // 10143
-    chainName: "Monad Testnet",
-    nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
-    rpcUrls: ["https://testnet-rpc.monad.xyz"],
-    blockExplorerUrls: ["https://testnet.monadexplorer.com"]
-  };
+    <!-- Connect Wallet -->
+    <button id="connectBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-xl mb-4 font-semibold">
+      🔗 Connect Wallet
+    </button>
 
-  // Example minimal contract (replace with your bytecode if needed)
-  const ABI = [];
-  const BYTECODE = "0x6080604052..."; // 🔴 Replace with full bytecode
+    <!-- Deploy Button -->
+    <button id="deployBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl font-semibold hidden">
+      🚀 Deploy Smart Contract
+    </button>
 
-  let provider, signer;
+    <!-- Result -->
+    <div id="result" class="mt-6 text-sm"></div>
+  </div>
 
-  function log(html) { document.getElementById("msg").innerHTML = html; }
+  <script>
+    // ------- CONFIG -------
+    const MONAD_CHAIN = {
+      chainId: "0x1F91", // 8081 in hex (example for Monad testnet, adjust if needed)
+      chainName: "Monad Testnet",
+      rpcUrls: ["https://testnet-rpc.monad.xyz"], // Replace with correct RPC
+      nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
+      blockExplorerUrls: ["https://testnet.monadscan.io/"]
+    };
 
-  document.getElementById("connect").onclick = async () => {
-    if (!window.ethereum) return log("Please install MetaMask first.");
-    await ethereum.request({ method: "wallet_addEthereumChain", params: [MONAD] });
-    provider = new ethers.BrowserProvider(window.ethereum);
-    signer = await provider.getSigner();
-    log("✅ Connected as <b>" + await signer.getAddress() + "</b>");
-    document.getElementById("deploy").disabled = false;
-  };
+    // Example bytecode for a simple contract (replace with your own)
+    const CONTRACT_BYTECODE = "0x6080604052348015600f57600080fd5b5060...0033"; 
 
-  document.getElementById("deploy").onclick = async () => {
-    try {
-      const factory = new ethers.ContractFactory(ABI, BYTECODE, signer);
-      log("📡 Sending deploy transaction...");
-      const contract = await factory.deploy();
-      log("⏳ Waiting for confirmation...");
-      await contract.waitForDeployment();
-      const addr = await contract.getAddress();
-      log(`✅ Congratulations, your smart contract has been deployed<br>
-        <a href="https://testnet.monadexplorer.com/address/${addr}" target="_blank">${addr}</a>`);
-    } catch (err) {
-      log("❌ Error: " + (err.message || err));
-    }
-  };
-</script>
+    let provider, signer;
+
+    // Setup Web3Modal
+    const web3modal = new window.Web3Modal.Web3Modal({
+      projectId: "YOUR_PROJECT_ID", // get from https://cloud.walletconnect.com
+      walletConnectVersion: 2,
+      chains: [MONAD_CHAIN],
+      themeMode: "dark"
+    });
+
+    const connectBtn = document.getElementById("connectBtn");
+    const deployBtn = document.getElementById("deployBtn");
+    const result = document.getElementById("result");
+
+    // Connect wallet
+    connectBtn.onclick = async () => {
+      try {
+        const session = await web3modal.connect();
+        provider = new ethers.providers.Web3Provider(session);
+        signer = provider.getSigner();
+
+        connectBtn.innerText = "✅ Wallet Connected";
+        connectBtn.disabled = true;
+        deployBtn.classList.remove("hidden");
+      } catch (err) {
+        console.error(err);
+        result.innerHTML = `<p class="text-red-500">❌ Connection failed</p>`;
+      }
+    };
+
+    // Deploy smart contract
+    deployBtn.onclick = async () => {
+      try {
+        result.innerHTML = `<p class="text-yellow-400">⏳ Deploying contract...</p>`;
+        const tx = await signer.sendTransaction({ data: CONTRACT_BYTECODE });
+        await tx.wait();
+
+        result.innerHTML = `
+          <p class="text-green-400">🎉 Contract Deployed!</p>
+          <a href="${MONAD_CHAIN.blockExplorerUrls[0]}/address/${tx.contractAddress}" 
+             class="text-blue-400 underline" target="_blank">
+             ${tx.contractAddress}
+          </a>
+        `;
+      } catch (err) {
+        console.error(err);
+        result.innerHTML = `<p class="text-red-500">❌ Deployment failed</p>`;
+      }
+    };
+  </script>
 </body>
 </html>
